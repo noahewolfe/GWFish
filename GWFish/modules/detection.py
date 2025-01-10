@@ -108,7 +108,7 @@ class DetectorComponent:
                 self.psd_data[:, 1] = (2 + 4 * np.cos(2 * np.pi * ff * self.L / cst.c)**2) * (
                         4 * np.sin(np.pi * ff * self.L / cst.c) ** 2 * S_pm + S_oms)
 
-        self.Sn = interp1d(self.psd_data[:, 0], self.psd_data[:, 1], bounds_error=False, fill_value=1.)
+        self.Sn = interp1d(self.psd_data[:, 0], self.psd_data[:, 1], bounds_error=False, fill_value=np.inf)
 
     def plot_psd(self):
         plt.loglog(self.psd_data[:, 0], np.sqrt(self.psd_data[:, 1]), label=f'Component {self.id}')
