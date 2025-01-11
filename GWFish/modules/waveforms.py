@@ -355,6 +355,9 @@ class LALFD_Waveform(Waveform):
         hfp = phi_in * np.conjugate(self.hf_plus_out)  # it's already multiplied by the phase
         hfc = phi_in * np.conjugate(self.hf_cross_out)
 
+        #hfp = self.hf_plus_out * phi_in
+        #hfc = self.hf_cross_out * phi_in
+
         return hfp, hfc
 
     def _fd_gwfish_output_format(self, hfp, hfc):

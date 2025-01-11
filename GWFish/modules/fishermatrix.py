@@ -55,12 +55,12 @@ class Derivative:
 
     eps: 1e-5, this follows the simple "cube root of numerical precision" recommendation, which is 1e-16 for double
     """
-    def __init__(self, waveform, parameters, detector, eps=1e-5, waveform_class=wf.Waveform):
+    def __init__(self, waveform, parameters, detector, reference_frequency=50, eps=1e-5, waveform_class=wf.Waveform):
         self.waveform = waveform
         self.detector = detector
         self.eps = eps
         self.waveform_class = waveform_class
-        self.data_params = {'frequencyvector': detector.frequencyvector, 'f_ref': 50.}
+        self.data_params = {'frequencyvector': detector.frequencyvector, 'f_ref': reference_frequency}
         self.waveform_object = waveform_class(waveform, parameters, self.data_params)
         self.waveform_at_parameters = None
         self.projection_at_parameters = None
@@ -165,10 +165,10 @@ class Derivative:
         return self.with_respect_to(target_parameter)
 
 class FisherMatrix:
-    def __init__(self, waveform, parameters, fisher_parameters, detector, eps=1e-5, waveform_class=wf.Waveform):
+    def __init__(self, waveform, parameters, fisher_parameters, detector, reference_frequency=50, eps=1e-5, waveform_class=wf.Waveform):
         self.fisher_parameters = fisher_parameters
         self.detector = detector
-        self.derivative = Derivative(waveform, parameters, detector, eps=eps, waveform_class=waveform_class)
+        self.derivative = Derivative(waveform, parameters, detector, eps=eps, waveform_class=waveform_class, reference_frequency=reference_frequency)
         self.nd = len(fisher_parameters)
         self.fm = None
 
@@ -235,17 +235,18 @@ def sky_localization_percentile_factor(
 def compute_detector_fisher(
     detector: det.Detector,
     signal_parameter_values: Union[pd.DataFrame, dict[str, float]],
+    reference_frequency: float,
     fisher_parameters: Optional[list[str]] = None,
     waveform_model: str = wf.DEFAULT_WAVEFORM_MODEL,
     waveform_class: type(wf.Waveform) = wf.LALFD_Waveform,
     use_duty_cycle: bool = False,
     redefine_tf_vectors: bool = False,
-    long_wavelength: bool = True,
+    long_wavelength: bool = True
 ) -> tuple[np.ndarray, float]:
     """Compute the Fisher matrix and SNR for a single detector.
-    
+
     Example usage:
-    
+
     ```
     >>> from GWFish.modules.detection import Detector
     >>> detector = Detector('ET')
@@ -265,9 +266,9 @@ def compute_detector_fisher(
     (9, 9)
     >>> print(f'{np.sqrt(detector_SNR_square):.0f}')
     260
-    
+
     ```
-    
+
     :param detector: The detector to compute the Fisher matrix for
     :param signal_parameter_values: The parameter values for the signal. They can be a dictionary of parameter names and values, or a single-row pandas DataFrame with the parameter names as columns.
     :param fisher_parameters: The parameters to compute the Fisher matrix for. If None, all parameters are used.
@@ -275,21 +276,21 @@ def compute_detector_fisher(
     :param waveform_class: The waveform class to use (see [choosing an approximant](../how-to/choosing_an_approximant.md));
     :param use_duty_cycle: Whether to use the detector duty cycle (i.e. stochastically set the SNR to zero some of the time); defaults to `False`
     :param redefine_tf_vectors: Whether to redefine the time-frequency vectors in order to correctly model signals with small frequency evolution. Defaults to `False`.
-    
+
     :return: The Fisher matrix, and the square of the detector SNR.
     """
     data_params = {
         'frequencyvector': detector.frequencyvector,
-        'f_ref': 50.
+        'f_ref': reference_frequency
     }
     waveform_obj = waveform_class(waveform_model, signal_parameter_values, data_params)
     wave = waveform_obj()
     t_of_f = waveform_obj.t_of_f
 
     if redefine_tf_vectors:
-        signal, timevector, frequencyvector = det.projection(signal_parameter_values, detector, wave, t_of_f, redefine_tf_vectors=True, long_wavelength_approx = long_wavelength)
+        signal, timevector, frequencyvector = det.projection(signal_parameter_values, detector, wave, t_of_f, redefine_tf_vectors=True, long_wavelength_approx=long_wavelength)
     else:
-        signal = det.projection(signal_parameter_values, detector, wave, t_of_f, long_wavelength_approx = long_wavelength)
+        signal = det.projection(signal_parameter_values, detector, wave, t_of_f, long_wavelength_approx=long_wavelength)
         frequencyvector = detector.frequencyvector[:, 0]
 
     component_SNRs = det.SNR(detector, signal, use_duty_cycle, frequencyvector=frequencyvector)
@@ -301,7 +302,7 @@ def compute_detector_fisher(
         else:
             fisher_parameters = signal_parameter_values.columns
 
-    return FisherMatrix(waveform_model, signal_parameter_values, fisher_parameters, detector, waveform_class=waveform_class).fm, detector_SNR_square
+    return FisherMatrix(waveform_model, signal_parameter_values, fisher_parameters, detector, waveform_class=waveform_class, reference_frequency=reference_frequency).fm, detector_SNR_square
 
 def compute_network_errors(
     network: det.Network,
